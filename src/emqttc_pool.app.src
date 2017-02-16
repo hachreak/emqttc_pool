@@ -1,0 +1,16 @@
+{application, emqttc_pool,
+ [{description, "MQTT client + pool."},
+  {vsn, "0.0.0"},
+  {registered, []},
+  {mod, { emqttc_pool_app, []}},
+  {applications,
+   [kernel,
+    stdlib
+   ]},
+  {env,[]},
+  {modules, []},
+
+  {maintainers, []},
+  {licenses, []},
+  {links, []}
+ ]}.
