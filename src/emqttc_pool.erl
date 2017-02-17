@@ -15,53 +15,47 @@
 %%% along with this software; if not, write to the Free Software Foundation,
 %%% Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 %%%
-%% @doc emqttc_pool top level supervisor.
+%% @doc emqttc_pool public API
 %% @end
 
--module(emqttc_pool_sup).
-
--behaviour(supervisor).
+-module(emqttc_pool).
 
 -author('Leonardo Rossi <leonardo.rossi@studenti.unipr.it>').
 
+%% Application callbacks
+-export([
+  publish/3,
+  publish/4,
+  subscribe/2,
+  subscribe/3
+]).
+
+-include_lib("emqttc/include/emqttc_packet.hrl").
+
+%%====================================================================
 %% API
--export([start_link/0]).
-
-%% Supervisor callbacks
--export([init/1]).
-
--define(SERVER, ?MODULE).
-
-%%====================================================================
-%% API functions
 %%====================================================================
 
-start_link() ->
-    supervisor:start_link({local, ?SERVER}, ?MODULE, []).
+subscribe(PoolName, Topic) ->
+  poolboy:transaction(PoolName, fun(Worker) ->
+      gen_server:cast(Worker, {subscribe, Topic})
+    end).
 
-%%====================================================================
-%% Supervisor callbacks
-%%====================================================================
+subscribe(PoolName, Topic, Qos) ->
+  poolboy:transaction(PoolName, fun(Worker) ->
+      gen_server:cast(Worker, {subscribe, Topic, Qos})
+    end).
 
-%% Child :: {Id,StartFunc,Restart,Shutdown,Type,Modules}
-init([]) ->
-    RestartStrategy = {one_for_all, 0, 1},
-    PoolSpecs = setup(config()),
-    {ok, {RestartStrategy, PoolSpecs}}.
+publish(PoolName, Topic, Payload) ->
+  poolboy:transaction(PoolName, fun(Worker) ->
+      gen_server:cast(Worker, {publish, Topic, Payload})
+    end).
+
+publish(PoolName, Topic, Payload, PubOpts) ->
+  poolboy:transaction(PoolName, fun(Worker) ->
+      gen_server:cast(Worker, {publish, Topic, Payload, PubOpts})
+    end).
 
 %%====================================================================
 %% Internal functions
 %%====================================================================
-
-config() ->
-  {ok, Pools} = application:get_env(emqttc_pool, pools),
-  Retries = application:get_env(emqttc_pool, retry, 20),
-  {Pools, Retries}.
-
-setup({Pools, Retries}) ->
-  lists:map(fun({Name, SizeArgs, WorkerArgs}) ->
-      PoolArgs = [
-          {name, {local, Name}}, {worker_module, emqttc_pool_worker}
-        ] ++ SizeArgs,
-      poolboy:child_spec(Name, PoolArgs, {WorkerArgs, Retries})
-    end, Pools).
